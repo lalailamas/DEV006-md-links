@@ -1,8 +1,13 @@
 // module.exports = () => {
 //   // ...
 // };
-const fs = require("fs").promises;
-const path = require("path");
+const fs = require("fs");
+const ruta = require("path");
+
+//promisify convierte función callback en función basada en promesas
+// se le pasa como argumento la función que se desea promisificar
+// promisify devuelve una nueva función que se puede utilizar para realizar llamadas a la función original pero con sintaxis de promesas
+const { promisify } = require("util");
 const pathFile = process.argv[2];
 
 // function mdLinks(path, options = {validate: false}){
@@ -11,59 +16,50 @@ const pathFile = process.argv[2];
 // }
 // verifico si la ruta es absoluta, si no lo es resolverla como absoluta
 const absolutePath = () => { 
-  if (path.isAbsolute(pathFile)){
+  if (ruta.isAbsolute(pathFile)){
     console.log(pathFile, 'esta es una ruta absoluta');
 } else {
-    const resolvedPath = path.resolve(pathFile);
+    const resolvedPath = ruta.resolve(pathFile);
     console.log(resolvedPath, 'transformada en absoluta');
   }
 }
 absolutePath();
 
 //verifico si la ruta existe 
-const checkPath = (path) => {
-  fs.access(path)
+const checkPath = (ruta) => {
+  promisify(fs.access)(ruta)
   .then(()=>{
-    console.log('la ruta', path, 'existe');
+    console.log('la ruta', ruta, 'existe');
   })
   .catch(()=>{
-    console.log('La ruta', path, 'no existe');
+    console.log('La ruta', ruta, 'no existe');
   })
 };
 checkPath(pathFile);
 
+//leer contenido del archivo
+const readFile = promisify(fs.readFile);
+readFile(pathFile, 'utf-8') 
+.then((data) => {
+  console.log(data, 'leyendo contenido');
+})
+.catch((error) => {
+  console.error(error);
+});
+
 //verifico si la ruta es un archivo o un directorio
-// const isFile = (path) => {
-//   return fs.stat(path)
-//   .then((stats)=>{
-//     stats.isFile(),
-//     console.log('es un archivo');
-//     })
-//     .catch(()=>{
-//       console.log('es un directorio');
-//     })
-//   }
-// isFile(pathFile);
-
-
-//   if(fs.stat(path) === stats){
-//     console.log(path, 'es un archivo');
-//   } else {
-//     console.log(path, 'es un directorio');
-//   }
-// }
-// checkType(path);
-
-
-// fs.stat(path, (err, stats) => {
-//   if (err) {
-//     console.error('Error al acceder a la ruta:', err);
-//     return;
-//   }
-
-//   if (stats.isFile()) {
-//     console.log('La ruta corresponde a un archivo');
-//   } else {
-//     console.log('La ruta es un directorio');
-//   }
-// });
+const stat = promisify(fs.stat);
+const isFile = (ruta) => {
+  stat(ruta)
+    .then((stats) => {
+      if (stats.isFile()) {
+        console.log('La ruta', ruta, 'es un archivo');
+      } else {
+        console.log('La ruta', ruta, 'es un directorio');
+      }
+    })
+    .catch((error) => {
+      console.error('Error al verificar si es un archivo:', error);
+    });
+};
+isFile(pathFile);
