@@ -1,65 +1,77 @@
-// module.exports = () => {
-//   // ...
-// };
 const fs = require("fs");
 const ruta = require("path");
-
-//promisify convierte función callback en función basada en promesas
-// se le pasa como argumento la función que se desea promisificar
-// promisify devuelve una nueva función que se puede utilizar para realizar llamadas a la función original pero con sintaxis de promesas
-const { promisify } = require("util");
 const pathFile = process.argv[2];
 
-// function mdLinks(path, options = {validate: false}){
-//   return new Promise((resolve, reject) => {
-
-// }
 // verifico si la ruta es absoluta, si no lo es resolverla como absoluta
-const absolutePath = () => { 
-  if (ruta.isAbsolute(pathFile)){
-    console.log(pathFile, 'esta es una ruta absoluta');
-} else {
-    const resolvedPath = ruta.resolve(pathFile);
-    console.log(resolvedPath, 'transformada en absoluta');
-  }
-}
-absolutePath();
+const absolutePath = (ruta) => ruta.isAbsolute(pathFile);
+console.log("¿Ruta absoluta?", absolutePath(ruta));
 
-//verifico si la ruta existe 
-const checkPath = (ruta) => {
-  promisify(fs.access)(ruta)
-  .then(()=>{
-    console.log('la ruta', ruta, 'existe');
-  })
-  .catch(()=>{
-    console.log('La ruta', ruta, 'no existe');
-  })
-};
-checkPath(pathFile);
+const relativePath = (ruta) => ruta.resolve(pathFile);
+console.log("Resuelta como absoluta: ", relativePath(ruta));
+
+//verifico si la ruta existe
+const checkPath = () => fs.existsSync(pathFile);
+console.log("¿Existe?", checkPath(ruta));
 
 //leer contenido del archivo
-const readFile = promisify(fs.readFile);
-readFile(pathFile, 'utf-8') 
-.then((data) => {
-  console.log(data, 'leyendo contenido');
-})
-.catch((error) => {
-  console.error(error);
-});
-
-//verifico si la ruta es un archivo o un directorio
-const stat = promisify(fs.stat);
-const isFile = (ruta) => {
-  stat(ruta)
-    .then((stats) => {
-      if (stats.isFile()) {
-        console.log('La ruta', ruta, 'es un archivo');
+function readFile(pathFile) {
+  return new Promise((resolve, reject) => {
+    const extFile = fs.readFile(pathFile, "utf-8", (err, data) => {
+      if (err) {
+        reject("Error al leer el archivo");
       } else {
-        console.log('La ruta', ruta, 'es un directorio');
+        const filterExtension = ruta.extname(pathFile);
+        if (filterExtension === ".md") {
+          resolve(data, extFile);
+        } else {
+          console.error("El archivo no tiene extension .md");
+        }
       }
+    });
+  });
+}
+
+//leer archivos de un directorio y filtrar los .md con ruta absoluta
+function readDir(pathFile) {
+  return new Promise((resolve, reject) => {
+    const extDir = fs.readdir(pathFile, "utf-8", (err, files) => {
+      if (err) {
+        reject("Error al leer el directorio");
+      } else {
+        const arrRoute = [];
+        files.forEach((file) => {
+          const filterExtension = ruta.extname(file);
+          if (filterExtension === ".md") {
+            const relativePath = ruta.resolve(file);
+            arrRoute.push(relativePath);
+          }
+        });
+        resolve(arrRoute, extDir);
+      }
+    });
+  });
+}
+
+//archivo o directorio?
+const stats = fs.statSync(pathFile);
+if (stats.isFile()) {
+  // Es un archivo
+  readFile(pathFile)
+    .then((data) => {
+      console.log("Contenido del archivo:", data);
     })
     .catch((error) => {
-      console.error('Error al verificar si es un archivo:', error);
+      console.error("Error al leer el archivo:", error);
     });
-};
-isFile(pathFile);
+} else if (stats.isDirectory()) {
+  // Es un directorio
+  readDir(pathFile)
+    .then((files) => {
+      console.log("Archivos del directorio:", files);
+    })
+    .catch((error) => {
+      console.error("Error al leer el directorio:", error);
+    });
+} else {
+  console.error("Ruta inválida");
+}
