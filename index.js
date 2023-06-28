@@ -72,28 +72,36 @@ function mdLinks(path, options = { validate: false }) {
     if (stats.isDirectory()) {
       const contentDir = readDir(pathAbsolute);
       contentDir.then((files) => {
-        files.forEach((file) => {
+        const promises = files.map((file) => {
           const filePath = pathNode.join(pathAbsolute, file);
           const fileStats = fs.statSync(filePath);
           if (fileStats.isFile()) {
             const contentFile = readFile(filePath);
-            contentFile
-              .then((result) => {
-                const links = extractLinks(result, pathAbsolute);
-                if (!options.validate) {
-                  resolve(links);
-                } else {
-                  const validate = validateLinks(links);
-                  resolve(validate);
-                }
-              })
-              .catch(() => {
-                console.log("No se encontró ningún link en este directorio");
-              });
+            return contentFile.then((result) => {
+              const links = extractLinks(result, pathAbsolute);
+              if (!options.validate) {
+                return links;
+              } else {
+                return validateLinks(links);
+              }
+            });
+          } else if (fileStats.isDirectory()) {
+            return mdLinks(filePath, options);
           }
         });
+    
+        Promise.all(promises)
+          .then((results) => {
+            const allLinks = results.flat();
+            resolve(allLinks);
+          })
+          .catch(() => {
+            console.log("No se encontró ningún link en este directorio");
+            reject();
+          });
       });
     }
+    
   });
   return promiseMdLinks;
 }
@@ -141,7 +149,7 @@ function validateLinks(linksArray) {
   return Promise.all(promises);
 }
 
-const resultPromise = mdLinks("./holaholahola/jelous.md", { validate: true });
+const resultPromise = mdLinks("./holaholahola", { validate: true });
 resultPromise
   .then((result) => {
     console.log(result);
@@ -149,3 +157,9 @@ resultPromise
   .catch((error) => {
     console.log(error);
   });
+
+  module.exports = {
+    mdLinks,
+    extractLinks,
+    validateLinks,
+  }
