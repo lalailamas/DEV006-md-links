@@ -1,10 +1,19 @@
 const fs = require("fs");
-// const ruta = require("path");
 const pathNode = require("path");
-const markdownIt = require("markdown-it");
+const axios = require("axios");
+const yargs = require('yargs');
+
+const argv = yargs
+  .option('validate', {
+    alias: 'v',
+    describe: 'Validates the links',
+    type: 'boolean',
+  })
+  .argv;
+
 
 // verifico si la ruta es absoluta, si no lo es resolverla como absoluta
-const path = "./holaholahola/";
+const path = "./holaholahola/jelous.md";
 const absolutePath = (path) => pathNode.isAbsolute(path);
 // console.log("¿Ruta absoluta?", absolutePath(path));
 
@@ -12,7 +21,7 @@ const relativePath = (path) => pathNode.resolve(path);
 // console.log("Resuelta como absoluta: ", relativePath(path));
 
 //verifico si la ruta existe
-const checkPath = () => fs.existsSync(path);
+const checkPath = (path) => fs.existsSync(path);
 // console.log("¿Existe?", checkPath(path));
 
 const filterExtension = pathNode.extname(path);
@@ -46,228 +55,173 @@ function readDir(path) {
           (file) => pathNode.extname(file) === ".md"
         );
         resolve(markdownFiles);
-        //TODO: TRAER LA INFO DE CADA ARCHIVO FILTRADO .MD
       }
     });
   });
 }
 
 // archivo o directorio?
-const stats = fs.statSync(path);
-if (stats.isFile()) {
-  // Es un archivo
-  readFile(path)
-    .then((data) => {
-      console.log("Contenido del archivo:", data);
-    })
-    .catch((error) => {
-      console.error("Error al leer el archivo:", error);
-    });
-} else if (stats.isDirectory()) {
-  // Es un directorio
-  readDir(path)
-    .then((files) => {
-      console.log("Archivos del directorio:", files);
-    })
-    .catch((error) => {
-      console.error("Error al leer el directorio:", error);
-    });
-} else {
-  console.error("Ruta inválida");
-}
 // const stats = fs.statSync(path);
-// const filterExtension = pathNode.extname(path);
-
-// function mdLinks(path, options = { validate: false }) {
-//   const promiseMdLinks = new Promise((resolve, reject) => {
-//     const pathAbsolute = absolutePath(path);
-//     if (!pathAbsolute) {
-//       const pathRelative = relativePath(path);
-//     }
-//     if (pathAbsolute && pathCheck);
-//     {
-//       const pathCheck = checkPath();
-//     }
-//     if (stats.isFile() && filterExtension === ".md") {
-//       const contentFile = readFile(path);
-//       contentFile
-//         .then((result) => {
-//           // const links = parseMarkdownLinks(contentFile);
-//           resolve(result);
-//         })
-//         .catch((error) => {
-//           console.error("No se encontró ningún link en este archivo", error);
-//         });
-//     } else  (stats.isDirectory()); {
-//       const contentDir = readDir(path);
-// contentDir
-//   .then((result) => {
-//   console.log(result, 'resultado directorio')
-// const links = [];
-// files.forEach(() => {
-// const fileLinks = parseMarkdownLinks(file.content);
-// links.push(fileLinks);
-// })
-// resolve(links, "resultado directorio");
-// })
-// .catch((error) => {
-//   console.error("No se encontró ningún link en este directorio", error);
-// });
+// if (stats.isFile()) {
+//   // Es un archivo
+//   readFile(path)
+//     .then((data) => {
+//       console.log("Contenido del archivo:", data);
+//     })
+//     .catch((error) => {
+//       console.error("Error al leer el archivo:", error);
+//     });
+// } else if (stats.isDirectory()) {
+//   // Es un directorio
+//   readDir(path)
+//     .then((files) => {
+//       console.log("Archivos del directorio:", files);
+//     })
+//     .catch((error) => {
+//       console.error("Error al leer el directorio:", error);
+//     });
+// } else {
+//   console.error("Ruta inválida");
 // }
 
-//         readFile(pathFile)
-//           .then((content) => {
-//             const links = parseMarkdownLinks(content);
-//             resolve(links);
-//           })
-//           .catch((error) => {
-//             reject("No se encontró ningún link en este archivo", error);
-//           });
-//       } else if (stats.isDirectory() && filterExtension === ".md") {
-//         filterExtension = path.extname(pathFile);
-//         readDir(pathFile)
-//           .then((files) => {
-//             const links = [];
-//             files.forEach((file) => {
-//               const fileLinks = parseMarkdownLinks(file.content);
-//               links.push(fileLinks);
-//             });
-//             resolve(links);
-//           })
-//           .catch((error) => {
-//             reject("No se encontró ningún link en este directorio", error);
-//           });
-//       } else {
-//         reject("Ruta no existe");
-//       }
-//     } else {
-//       reject("Ruta no válida");
-//     }
-// });
+function mdLinks(path, options = { validate: false }) {
+  const promiseMdLinks = new Promise((resolve, reject) => {
+    const verifyPath = absolutePath(path);
 
-// return promiseMdLinks;
-// }
-
-function parseMarkdownLinks(markdownContent) {
-  const md = markdownIt();
-  const tokens = md.parse(markdownContent); //fn parse se usa para analizar el contenido del Markdown
-  const links = [];
-
-  tokens.forEach((token) => {
-    if (token.type === "inline" && token.tag === "a") {
-      const link = {
-        href: token.attrs[0][1], //matriz de pares clave-valor, valor del atributo href, URL del enlace extraido
-        text: token.children[0].content, //texto dentro del enlace (el primer elemento secundario)
-      };
-      links.push(link);
+    let pathAbsolute = path;
+    if (!verifyPath) {
+      pathAbsolute = relativePath(path);
     }
+    const pathCheck = checkPath(pathAbsolute);
+    if (!pathCheck) {
+      reject("No existe la ruta");
+    }
+    const stats = fs.statSync(pathAbsolute);
+    if (stats.isFile()) {
+      const contentFile = readFile(pathAbsolute);
+      contentFile
+        .then((result) => {
+          const links = extractLinks(result, pathAbsolute);
+          if (!argv.validate) {
+            resolve(links);
+          } else {
+           const validate = validateLinks(links);
+           resolve(validate)
+          }
+        })
+        .catch(() => {
+          console.log("No se encontró ningún link en este archivo");
+        });
+    }
+
+    // else { (stats.isDirectory())
+
+    //   const contentDir = readDir(pathAbsolute);
+    //   contentDir
+
+    //     .then((result) => {
+
+    //       console.log(result, 'result directorio')
+    //       const links = [];
+    //       const verifyDir = result.map((links) => {
+    //         console.log(links)
+    //       });
+    //       console.log(verifyDir, "contenido archivo");
+
+    // console.log(result, "resultado directorio");
+    // const links = [];
+    // files.forEach(() => {
+    //   const fileLinks = parseMarkdownLinks(file.content);
+    //   links.push(fileLinks);
+    // });
+    // resolve(result, "resultado directorio");
+    // })
+    // .catch((error) => {
+    //   console.error("No se encontró ningún link en este directorio", error);
+    // });
+    //     } else if () {
+    //   reject("Ruta no existe");
+    // }
+    // }
+
+    // else {
+    //   reject("Ruta no válida");
+    // }
   });
 
-  return links;
+  return promiseMdLinks;
 }
 
-// const resultPromise = mdLinks("./holaholahola/jelous.md");
-// resultPromise
-//   .then((result) => {
-//     console.log(result);
-//   })
-//   .catch((error) => {
-//     console.log(error);
-//   });
+function extractLinks(contentFile, absolutePath) {
+  const regexMdLinks = /\[([^\[]+)\](\(.*\))/gm;
+  const array = [...contentFile.matchAll(regexMdLinks)];
+  const linksArray = array.map((object) => {
+    return {
+      href: object[2].replace(/^(\()|(\))$/g, ""),
+      text: object[1],
+      file: absolutePath,
+    };
+  });
+  return linksArray;
+}
 
-// function mdLinks(ruta, options = { validate: false }) {
-//   const promiseMdLinks = new Promise((resolve, reject) => {
-//     if (ruta === ruta.isAbsolute && checkPath === true) {
-//       if (ruta === relativePath()) {
-//         ruta.resolve(pathFile);
-//       }
-//       const stats = fs.statSync(pathFile);
-//       const filterExtension = ruta.extname(pathFile);
-//       if (stats.isFile() && filterExtension === ".md") {
-//         readFile(ruta)
-//           .then(() => {
-//             arrFile = [];
-//             const links = [
-//               { href: ruta.href, text: ruta.text, file: ruta.file },
-//             ];
-//             arrFile.push(links);
-//             resolve(links);
-//           })
-//           .catch((error) => {
-//             reject("No se encontró ningún link en este archivo", error);
-//           });
-//       } else if (stats.isDirectory() && filterExtension === ".md") {
-//         readDir(ruta)
-//           .then((files) => {
-//             const arrDir = [];
-//             files.forEach((file) => {
-//               const links = [
-//                 { href: ruta.href, text: ruta.text, file: ruta.file },
-//               ];
-//               arrDir.push(links);
-//             });
-//             resolve(links);
-//           })
-//           .catch((error) => {
-//             reject("No se encontró ningún link en este directorio", error);
-//           });
-//         } else if (options.validate){
-//           links.forEach((link) =>{
-//             link.status= 200;
-//             link.ok= true;
-//           });
-//       } else {
-//       reject("Ruta no existe");
-//     }
-//   };
-//     });
+function validateLinks(linksArray) {
+  const promises = linksArray.map((link) => {
+    return axios.get(link.href)
+      .then((response) => {
+        console.log('estoy aqui')
+        const status = response.status;
+        const statusText = response.statusText;
+        const ok = status === 200;
+        return {
+          href: link.href,
+          text: link.text,
+          file: link.file,
+          status,
+          statusText,
+          ok,
+        };
+      })
+      .catch((error) => {
+        console.log('Error al validar el link:', error.message);
+        return {
+          href: link.href,
+          text: link.text,
+          file: link.file,
+          status: null,
+          statusText: '',
+          ok: false,
+        };
+      });
+  });
+  return Promise.all(promises);
+}
 
-//   return promiseMdLinks;
-// }
 
-// const resultPromise = mdLinks(process.argv[2]);
-// resultPromise
-//   .then((result) => {
-//     console.log(result);
-//   })
-//   .catch((error) => {
-//     console.log(error);
-//   });
 
-// function mdLinks(ruta, options = { validate: false }) {
-//   const promiseMdLinks = new Promise((resolve, reject) => {
-//     if (ruta === ruta.isAbsolute && checkPath() === true) {
-//       // Lógica para manejar una ruta absoluta existente
-//       if (options.validate) {
-//         // Realizar validación de enlaces
-//         const result = validateLinks(ruta);
-//         resolve(result);
-//       } else {
-//         // Obtener los enlaces sin validación
-//         const result = getLinks(ruta);
-//         resolve(result);
-//       }
-//     } else if (/* otra condición */) {
-//       // Lógica para manejar otra condición
-//       // ...
-//     } else {
-//       reject("Ruta inválida");
-//     }
-//   });
 
-//   return promiseMdLinks;
-// }
 
-// function checkPath() {
-//   return fs.existsSync(pathFile);
-// }
+  // links.forEach((link) => {
+  //     axios.get(link.href)
+  //     .then((response) => {
+  //       if (response.status === 200) {
+  //         // console.log(response.status);       
+  //         console.log("Link Válido: ", link.href, link.statusText);
+  //       } else {
+  //         console.log("Link NO válido", link.href);
+  //       }
+  //     })
+  //     .catch(() => {
+  //       console.log("Error al validar el link", link.href);
+  //   });
+  // });
 
-// function getLinks(ruta) {
-//   // Lógica para obtener los enlaces sin validación
-//   // ...
-// }
 
-// function validateLinks(ruta) {
-//   // Lógica para validar los enlaces
-//   // ...
-// }
+const resultPromise = mdLinks("./holaholahola/jelous.md");
+resultPromise
+  .then((result) => {
+    console.log(result);
+  })
+  .catch((error) => {
+    console.log(error);
+  });
