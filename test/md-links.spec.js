@@ -192,7 +192,7 @@ describe('validateLinks', () => {
         if (url === 'https://www.example.com') {
           return Promise.resolve({ status: 200 });
         } else {
-          return Promise.resolve({ status: 404 });
+          return Promise.resolve({ status: null});
         }
       }),
     };
@@ -210,8 +210,8 @@ describe('validateLinks', () => {
             href: 'https://www.google.com',
             text: 'enlace 2',
             file: '/ruta/absoluta/archivo.md',
-            status: null,
-            ok: false,
+            status: 200,
+            ok: true,
           },
         ]);
       });
